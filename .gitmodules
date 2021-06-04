@@ -1,0 +1,3 @@
+[submodule "morai_msgs"]
+	path = morai_msgs
+	url = https://github.com/morai-developergroup/morai_msgs.git
