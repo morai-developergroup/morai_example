@@ -1,0 +1,3 @@
+[submodule "wecar_msgs"]
+	path = wecar_msgs
+	url = https://github.com/morai-developergroup/wecar_msgs
