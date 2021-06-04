@@ -1,0 +1,52 @@
+  
+{
+        "params":
+        {
+            "user_ip" : "192.168.56.101",
+			"host_ip" : "192.168.56.1",
+			
+			"user_serial_port" : "/dev/ttyS0",
+			"traffic_greenlight_setting" : "True",
+
+            "cam_host_port" : 1231,
+            "cam_dst_port" : 1232,
+
+            "lidar_host_port" : 2369,
+            "lidar_dst_port" : 2368,
+
+            "gps_host_port" : 1233,
+            "gps_dst_port" : 1234,
+
+            "imu_host_port" : 1235,
+            "imu_dst_port" : 1236,
+
+	    	"ctrl_cmd_host_port" : 7601,
+	    	"ctrl_cmd_dst_port" : 7600,
+
+	    	"get_traffic_host_port" : 7701,
+	    	"get_traffic_dst_port" : 7700,
+
+	    	"set_traffic_host_port" : 7801,
+	    	"set_traffic_dst_port" : 7800,
+
+	    	"multi_ego_host_port" : 7901,
+	    	"multi_ego_dst_port" : 7900,
+
+	    	"vehicle_status_host_port" : 8001,
+	    	"vehicle_status_dst_port" : 8000,
+
+	    	"object_info_host_port" : 8101,
+	    	"object_info_dst_port" : 8100,
+
+	    	"scenario_load_host_port" : 8201,
+			"scenario_load_dst_port" : 8200,
+			
+			"make_path_folder_name" : "path",
+			"make_path_file_name" : "test_path.txt",
+			
+			"planner_path_file_name" : "kcity.txt"
+		}		
+		
+}
+
+
