@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import rospy
 import rospkg
@@ -7,10 +8,9 @@ from std_msgs.msg import Float64,Int16,Float32MultiArray
 import numpy as np
 from math import cos,sin,sqrt,pow,atan2,pi
 import tf
-from morai_msgs.msg  import ScenarioLoad
 
 
-class pathReader :  ## 텍스트 파일에서 경로를 출력 ##
+class pathReader :
     def __init__(self,pkg_name):
         rospack=rospkg.RosPack()
         self.file_path=rospack.get_path(pkg_name)
@@ -38,15 +38,15 @@ class pathReader :  ## 텍스트 파일에서 경로를 출력 ##
         
         
         openFile.close()
-        return out_path ## 읽어온 경로를 global_path로 반환 ##
+        return out_path
       
 
 
 
-def findLocalPath(ref_path,status_msg): ## global_path와 차량의 status_msg를 이용해 현재waypoint와 local_path를 생성 ##
+def findLocalPath(ref_path,status_msg):
     out_path=Path()
-    current_x=status_msg.pose_x
-    current_y=status_msg.pose_y
+    current_x=status_msg.position.x
+    current_y=status_msg.position.y
     current_waypoint=0
     min_dis=float('inf')
 
@@ -78,9 +78,7 @@ def findLocalPath(ref_path,status_msg): ## global_path와 차량의 status_msg�
         tmp_pose.pose.orientation.w=1
         out_path.poses.append(tmp_pose)
 
-    return out_path,current_waypoint ## local_path와 waypoint를 반환 ##
-
-
+    return out_path,current_waypoint
 
 class velocityPlanning :
     def __init__(self,car_max_speed,road_friction):
@@ -118,19 +116,19 @@ class velocityPlanning :
 
         for i in range(len(global_path.poses)-point_num,len(global_path.poses)):
             out_vel_plan.append(self.car_max_speed)
+        
         return out_vel_plan
 
 
-
-class purePursuit : ## purePursuit 알고리즘 적용 ##
+class purePursuit :
     def __init__(self):
         self.forward_point=Point()
         self.current_postion=Point()
         self.is_look_forward_point=False
+        self.lfd=12
+        self.min_lfd=11
+        self.max_lfd=30
         self.vehicle_length=0.5
-        self.lfd=1
-        self.min_lfd=1
-        self.max_lfd=5
         self.steering=0
         
     def getPath(self,msg):
@@ -139,15 +137,15 @@ class purePursuit : ## purePursuit 알고리즘 적용 ##
     
     def getEgoStatus(self,msg):
 
-        self.current_vel=msg.velocity  #kph
-        self.vehicle_yaw=(msg.heading+90)/180*pi   # rad
-        self.current_postion.x=msg.pose_x ## 차량의 현재x 좌표 ##
-        self.current_postion.y=msg.pose_y ## 차량의 현재y 좌표 ##
-        self.current_postion.z=msg.pose_z ## 차량의 현재z 좌표 ##
+        self.current_vel=msg.velocity.x  #kph
+        self.vehicle_yaw=msg.heading/180*pi   # rad
+        self.current_postion.x=msg.position.x
+        self.current_postion.y=msg.position.y
+        self.current_postion.z=msg.position.z
 
 
 
-    def steering_angle(self): ## purePursuit 알고리즘을 이용한 Steering 계산 ## 
+    def steering_angle(self):
         vehicle_position=self.current_postion
         rotated_point=Point()
         self.is_look_forward_point= False
@@ -164,10 +162,9 @@ class purePursuit : ## purePursuit 알고리즘 적용 ##
             
             if rotated_point.x>0 :
                 dis=sqrt(pow(rotated_point.x,2)+pow(rotated_point.y,2))
-                
                 if dis>= self.lfd :
                     
-                    self.lfd=self.current_vel/1.8
+                    self.lfd=self.current_vel * 5 # /1.8
                     if self.lfd < self.min_lfd : 
                         self.lfd=self.min_lfd
                     elif self.lfd > self.max_lfd :
@@ -181,12 +178,14 @@ class purePursuit : ## purePursuit 알고리즘 적용 ##
 
         if self.is_look_forward_point :
             self.steering=atan2((2*self.vehicle_length*sin(theta)),self.lfd)*180/pi #deg
-            return self.steering ## Steering 반환 ##
+            print( self.steering)
+            return self.steering 
         else : 
             print("no found forward point")
             return 0
+        
 
-class cruiseControl: ## ACC(advanced cruise control) 적용 ##
+class cruiseControl:
     def __init__(self,object_vel_gain,object_dis_gain):
         self.object=[False,0]
         self.traffic=[False,0]
@@ -195,32 +194,20 @@ class cruiseControl: ## ACC(advanced cruise control) 적용 ##
         self.object_dis_gain=object_dis_gain
 
 
-    def checkObject(self,ref_path,global_vaild_object,local_vaild_object,tl=[]): ## 경로상의 장애물 유무 확인 (차량, 사람, 정지선 신호) ##
+    def checkObject(self,ref_path,global_vaild_object,local_vaild_object,tl=[]):
         self.object=[False,0]
         self.traffic=[False,0]
         self.Person=[False,0]
         if len(global_vaild_object) >0  :
             min_rel_distance=float('inf')
             for i in range(len(global_vaild_object)):
-                for path in ref_path.poses :      
-
-                    if global_vaild_object[i][0]==1 :
-
-                        dis=sqrt(pow(path.pose.position.x-global_vaild_object[i][1],2)+pow(path.pose.position.y-global_vaild_object[i][2],2))
-
-                        if dis<2.5:
-                            rel_distance= sqrt(pow(local_vaild_object[i][1],2)+pow(local_vaild_object[i][2],2))
-                            
-                            if rel_distance < min_rel_distance:
-                                min_rel_distance=rel_distance
-                                self.object=[True,i]
-                            
+                for path in ref_path.poses :
 
                     if global_vaild_object[i][0]==0 :
                     
                         dis=sqrt(pow(path.pose.position.x-global_vaild_object[i][1],2)+pow(path.pose.position.y-global_vaild_object[i][2],2))
 
-                        if dis<4.35:
+                        if dis<3:
                             
                             rel_distance= sqrt(pow(local_vaild_object[i][1],2)+pow(local_vaild_object[i][2],2))
                             if rel_distance < min_rel_distance:
@@ -234,60 +221,25 @@ class cruiseControl: ## ACC(advanced cruise control) 적용 ##
                         if len(tl)!=0  and  global_vaild_object[i][3] == tl[0] :
                             if tl[1] == 48 or tl[1]==16   :   #
                                 traffic_sign ='GO'
+                        # print(traffic_sign)
                         if traffic_sign =='STOP':
                             dis=sqrt(pow(path.pose.position.x-global_vaild_object[i][1],2)+pow(path.pose.position.y-global_vaild_object[i][2],2))
                             
-                            if dis<9 :
+                            if dis<2.5 :
                                 rel_distance= sqrt(pow(local_vaild_object[i][1],2)+pow(local_vaild_object[i][2],2))
                                 if rel_distance < min_rel_distance:
                                     min_rel_distance=rel_distance
                                     self.traffic=[True,i]
 
-                         
-                    
-
-    
-
-
-
-    def acc(self,local_vaild_object,ego_vel,target_vel,status_msg): ## advanced cruise control 를 이용한 속도 계획 ##
+    def acc(self,local_vaild_object,ego_vel,target_vel,status_msg):
         out_vel=target_vel
         pre_out_vel = out_vel
-        if self.object[0] == True :
-            print("ACC ON_vehicle")   
-            front_vehicle=[local_vaild_object[self.object[1]][1],local_vaild_object[self.object[1]][2],local_vaild_object[self.object[1]][3]]
-            time_gap=0.8
-            default_space=5
-            dis_safe=ego_vel* time_gap+default_space
-            dis_rel=sqrt(pow(front_vehicle[0],2)+pow(front_vehicle[1],2))-3
-            
-            vel_rel=(front_vehicle[2]-ego_vel)  
-            
-            v_gain=self.object_vel_gain
-            x_errgain=self.object_dis_gain
-            acceleration=vel_rel*v_gain - x_errgain*(dis_safe-dis_rel)
-
-            acc_based_vel=ego_vel+acceleration
-            
-            if acc_based_vel > target_vel : 
-                acc_based_vel=target_vel
-            
-            if dis_safe-dis_rel >0 :
-                out_vel=acc_based_vel
-            else :
-                if acc_based_vel<target_vel :
-                    out_vel=acc_based_vel
-
-            dx = front_vehicle[0]
-            dy = front_vehicle[1]
-
-            t_dis = sqrt(pow(dx,2)+pow(dy,2))
 
         if self.Person[0]==True:
             print("ACC ON_person")
             Pedestrian=[local_vaild_object[self.Person[1]][1],local_vaild_object[self.Person[1]][2],local_vaild_object[self.Person[1]][3]]
-            time_gap=0.8
-            default_space=8
+            time_gap=0.6
+            default_space=1
             dis_safe=ego_vel* time_gap+default_space
             dis_rel=sqrt(pow(Pedestrian[0],2)+pow(Pedestrian[1],2))-3
             
@@ -303,23 +255,19 @@ class cruiseControl: ## ACC(advanced cruise control) 적용 ##
                 acc_based_vel=target_vel
             
             if dis_safe-dis_rel >0 :
-                out_vel=acc_based_vel - 5
+                out_vel=acc_based_vel
             else :
                 if acc_based_vel<target_vel :
                     out_vel=acc_based_vel
-            dx =  Pedestrian[0]
-            dy =  Pedestrian[1]
-
-            t_dis = sqrt(pow(dx,2)+pow(dy,2))
 
 
         if self.traffic[0] == True :
             print("Traffic_ON")   
             front_vehicle=[local_vaild_object[self.traffic[1]][1],local_vaild_object[self.traffic[1]][2],local_vaild_object[self.traffic[1]][3]]
-            time_gap=0.8
-            default_space=3
+            time_gap=0.3
+            default_space=0.1
             dis_safe=ego_vel* time_gap+default_space
-            dis_rel=sqrt(pow(front_vehicle[0],2)+pow(front_vehicle[1],2))-3
+            dis_rel=sqrt(pow(front_vehicle[0],2)+pow(front_vehicle[1],2))-1
             
             vel_rel=(0-ego_vel)  
             
@@ -337,12 +285,12 @@ class cruiseControl: ## ACC(advanced cruise control) 적용 ##
             else :
                 if acc_based_vel<target_vel :
                     out_vel=acc_based_vel
+            # print(dis_safe,dis_rel,- x_errgain*(dis_safe-dis_rel),out_vel)
 
-            if dis_rel < 3 :
+            if dis_rel < 1 :
                 out_vel = 0
 
-        if out_vel > 12:
-            out_vel = 12
+        print("out_vel", out_vel)
         return out_vel
 
 class mgko_obj :
@@ -356,7 +304,7 @@ class mgko_obj :
         
 
 
-class vaildObject : ## 장애물 유무 확인 (차량, 사람, 정지선 신호) ##
+class vaildObject :
 
     def __init__(self,stop_line=[]):
         self.stop_line=stop_line
@@ -404,9 +352,9 @@ class vaildObject : ## 장애물 유무 확인 (차량, 사람, 정지선 신호
 
 class pidController : ## 속도 제어를 위한 PID 적용 ##
     def __init__(self):
-        self.p_gain=0.1
+        self.p_gain=1.0
         self.i_gain=0.0
-        self.d_gain=0.05
+        self.d_gain=0.5
         self.controlTime=0.033
         self.prev_error=0
         self.i_control=0
@@ -451,7 +399,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
         local_end_point=det_t.dot(world_end_point)
         world_ego_vehicle_position=np.array([[vehicle_status[0]],[vehicle_status[1]],[1]])
         local_ego_vehicle_position=det_t.dot(world_ego_vehicle_position)
-        lane_off_set=[1.5,1.0,0.5,0,-0.5,-1.0,-1.5]
+        lane_off_set=[3.9,2.6,1.3,0,-1.3,-2.6,-3.9]
         local_lattice_points=[]
         for i in range(len(lane_off_set)):
             local_lattice_points.append([local_end_point[0][0],local_end_point[1][0]+lane_off_set[i],1])
@@ -502,6 +450,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
             out_path.append(lattice_path)
         
         add_point_size=int(vehicle_status[3]*2*3.6)
+        print('add point',add_point_size)
         if add_point_size>len(ref_path.poses)-2:
             add_point_size=len(ref_path.poses)
         elif add_point_size<10 :
@@ -544,7 +493,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
                             
                             dis= sqrt(pow(obj[1]-path_pos.pose.position.x,2)+pow(obj[2]-path_pos.pose.position.y,2))
    
-                            if dis<0.5:
+                            if dis<1.5:
                                 collision_bool[path_num]=True
                                 lane_weight[path_num]=lane_weight[path_num]+100
                                 break
@@ -552,6 +501,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
             print("No Obstacle")
     
         selected_lane=lane_weight.index(min(lane_weight))
+        print(lane_weight,selected_lane)
         all_lane_collision=True
         
     else :
