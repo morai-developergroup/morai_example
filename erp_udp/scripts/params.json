@@ -2,8 +2,8 @@
 {
         "params":
         {
-            "user_ip" : "192.168.56.101",
-			"host_ip" : "192.168.56.1",
+            "user_ip" : "127.0.0.1",
+			"host_ip" : "127.0.0.1",
 			
 			"user_serial_port" : "/dev/ttyS0",
 			"traffic_greenlight_setting" : "True",

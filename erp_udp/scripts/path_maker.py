@@ -1,4 +1,4 @@
-from lib.morai_udp_parser import erp_udp_parser
+from lib.morai_udp_parser import udp_parser
 import time
 import threading
 from math import cos,sin,sqrt,pow,atan2,pi
@@ -19,7 +19,7 @@ path_file_name = params["make_path_file_name"]
 class path_maker :
 
     def __init__(self):
-        self.status=erp_udp_parser(user_ip, status_port,'status')
+        self.status=udp_parser(user_ip, params["vehicle_status_dst_port"],'erp_status')
 
         self.file_path=os.path.dirname( os.path.abspath( __file__ ) )
         self.file_path = os.path.normpath(os.path.join(self.file_path, '..'))
