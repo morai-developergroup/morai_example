@@ -1,0 +1,6 @@
+<launch>
+    <!-- args="추종할 경로 이름" -->
+    <node pkg="scout_ros" type="scout_planner.py" name="planner" args="kcity.txt" output="screen" />
+    <node pkg="scout_ros" type="scout_gps_parser.py" name="gps_parser" output="screen" />
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find scout_ros)/rviz/planner.rviz" />
+</launch>
