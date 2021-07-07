@@ -65,14 +65,28 @@ class wecar_planner():
         lattice_current_lane=3
 
         while not rospy.is_shutdown():
+            print(self.is_status , self.is_obj)
                         
-            if self.is_status==True: ## 차량의 상태, 장애물 상태 점검
+            if self.is_status==True  and self.is_obj==True: ## 차량의 상태, 장애물 상태 점검
                 ## global_path와 차량의 status_msg를 이용해 현제 waypoint와 local_path를 생성
                 local_path,self.current_waypoint=findLocalPath(self.global_path,self.status_msg) 
                 
                 ## 장애물의 숫자와 Type 위치 속도 (object_num, object type, object pose_x, object pose_y, object velocity)
                 self.vo.get_object(self.object_num,self.object_info[0],self.object_info[1],self.object_info[2],self.object_info[3])
-                global_obj,local_obj=self.vo.calc_vaild_obj([self.status_msg.position.x,self.status_msg.position.y,(self.status_msg.heading+90)/180*pi])
+                global_obj,local_obj=self.vo.calc_vaild_obj([self.status_msg.position.x,self.status_msg.position.y,(self.status_msg.heading)/180*pi])
+
+                ########################  lattice  ########################
+                vehicle_status=[self.status_msg.position.x,self.status_msg.position.y,(self.status_msg.heading)/180*pi,self.status_msg.velocity.x/3.6]
+                lattice_path,selected_lane=latticePlanner(local_path,global_obj,vehicle_status,lattice_current_lane)
+                lattice_current_lane=selected_lane
+                                
+                if selected_lane != -1: 
+                    local_path=lattice_path[selected_lane]                
+                
+                if len(lattice_path)==7:                    
+                    for i in range(1,8):
+                        globals()['lattice_path_{}_pub'.format(i)].publish(lattice_path[i-1])
+                ########################  lattice  ########################
             
                 self.cc.checkObject(local_path,global_obj,local_obj)
 
@@ -82,9 +96,9 @@ class wecar_planner():
 
                 self.steering=pure_pursuit.steering_angle()
                 
-                self.cc_vel = self.cc.acc(local_obj,self.status_msg.velocity,vel_profile[self.current_waypoint],self.status_msg) ## advanced cruise control 적용한 속도 계획
+                self.cc_vel = self.cc.acc(local_obj,self.status_msg.velocity.x,vel_profile[self.current_waypoint],self.status_msg) ## advanced cruise control 적용한 속도 계획
 
-                self.servo_msg = self.steering*0.021 * 2 + self.steering_angle_to_servo_offset
+                self.servo_msg = self.steering*0.021 + self.steering_angle_to_servo_offset
                 self.motor_msg = self.cc_vel *4616/3.6
                 
     
@@ -92,9 +106,7 @@ class wecar_planner():
 
                 self.servo_pub.publish(self.servo_msg)
                 self.motor_pub.publish(self.motor_msg)
-                # print(self.servo_msg)
-                # print(self.motor_msg)
-                self.print_info()
+                # self.print_info()
             
             if count==300 : ## global path 출력
                 global_path_pub.publish(self.global_path)
@@ -108,6 +120,15 @@ class wecar_planner():
     def print_info(self):
 
         os.system('clear')
+        print('--------------------status-------------------------')
+        print('position :{0} ,{1}, {2}'.format(self.status_msg.position.x,self.status_msg.position.y,self.status_msg.position.z))
+        print('velocity :{} km/h'.format(self.status_msg.velocity.x))
+        print('heading :{} deg'.format(self.status_msg.heading))
+
+        print('--------------------object-------------------------')
+        print('object num :{}'.format(self.object_num))
+        for i in range(0,self.object_num) :
+            print('{0} : type = {1}, x = {2}, y = {3}, z = {4} '.format(i,self.object_info[0],self.object_info[1],self.object_info[2],self.object_info[3]))
 
         print('--------------------controller-------------------------')
         print('target vel_planning :{} km/h'.format(self.cc_vel))
@@ -122,7 +143,7 @@ class wecar_planner():
         self.status_msg=data
         br = tf.TransformBroadcaster()
         br.sendTransform((self.status_msg.position.x, self.status_msg.position.y, self.status_msg.position.z),
-                        tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.heading+90)/180*pi),
+                        tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.heading)/180*pi),
                         rospy.Time.now(),
                         "gps",
                         "map")
@@ -132,7 +153,7 @@ class wecar_planner():
 
 
 
-    def objectInfoCB(self,data):
+    def objectInfoCB(self,data): ## Object information Subscriber
         self.object_num=data.num_of_npcs+data.num_of_obstacle+data.num_of_pedestrian
         object_type=[]
         object_pose_x=[]

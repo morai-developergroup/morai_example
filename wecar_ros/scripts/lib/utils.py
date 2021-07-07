@@ -119,16 +119,15 @@ class velocityPlanning :
         
         return out_vel_plan
 
-
 class purePursuit :
     def __init__(self):
         self.forward_point=Point()
         self.current_postion=Point()
         self.is_look_forward_point=False
-        self.lfd=12
-        self.min_lfd=11
+        self.lfd=1
+        self.min_lfd= 1
         self.max_lfd=30
-        self.vehicle_length=0.5
+        self.vehicle_length=0.3
         self.steering=0
         
     def getPath(self,msg):
@@ -162,9 +161,11 @@ class purePursuit :
             
             if rotated_point.x>0 :
                 dis=sqrt(pow(rotated_point.x,2)+pow(rotated_point.y,2))
+                print("dis")
+                print("dis , lfd : ", dis, self.lfd)
                 if dis>= self.lfd :
                     
-                    self.lfd=self.current_vel * 5 # /1.8
+                    self.lfd=self.current_vel / 1.8
                     if self.lfd < self.min_lfd : 
                         self.lfd=self.min_lfd
                     elif self.lfd > self.max_lfd :
@@ -378,10 +379,11 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
     selected_lane=-1
     lattic_current_lane=current_lane
     look_distance=int(vehicle_status[3]*3.6*0.2*2)
-    if look_distance < 3 :
-        look_distance=3     #min 5m
-    if look_distance > 5 :
-        look_distance=5   
+    print("\nlook_dist :\n", look_distance)
+    if look_distance < 5 :
+        look_distance=5     #min 5m
+    if look_distance > 8 :
+        look_distance=8   
     if len(ref_path.poses)>look_distance :
         global_ref_start_point=(ref_path.poses[0].pose.position.x,ref_path.poses[0].pose.position.y)
         global_ref_start_next_point=(ref_path.poses[1].pose.position.x,ref_path.poses[1].pose.position.y)
@@ -399,7 +401,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
         local_end_point=det_t.dot(world_end_point)
         world_ego_vehicle_position=np.array([[vehicle_status[0]],[vehicle_status[1]],[1]])
         local_ego_vehicle_position=det_t.dot(world_ego_vehicle_position)
-        lane_off_set=[3.9,2.6,1.3,0,-1.3,-2.6,-3.9]
+        lane_off_set=[3.0,2.0,1.0,0,-1.0,-2.0,-3.0]
         local_lattice_points=[]
         for i in range(len(lane_off_set)):
             local_lattice_points.append([local_end_point[0][0],local_end_point[1][0]+lane_off_set[i],1])
@@ -449,7 +451,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
 
             out_path.append(lattice_path)
         
-        add_point_size=int(vehicle_status[3]*2*3.6)
+        add_point_size=int(vehicle_status[3]*4*3.6)
         print('add point',add_point_size)
         if add_point_size>len(ref_path.poses)-2:
             add_point_size=len(ref_path.poses)
@@ -493,7 +495,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
                             
                             dis= sqrt(pow(obj[1]-path_pos.pose.position.x,2)+pow(obj[2]-path_pos.pose.position.y,2))
    
-                            if dis<1.5:
+                            if dis<1.0:
                                 collision_bool[path_num]=True
                                 lane_weight[path_num]=lane_weight[path_num]+100
                                 break
