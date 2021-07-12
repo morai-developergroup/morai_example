@@ -11,10 +11,11 @@ with open(os.path.join(path,("params.json")),'r') as fp :
 
 params=params["params"]
 user_ip = params["user_ip"]
+host_ip = params["host_ip"]
 imu_port = params["imu_dst_port"]
 
 def main():
-    imu_parser=udp_sensor_parser(user_ip, imu_port,'imu')
+    imu_parser=udp_sensor_parser(host_ip, imu_port,'imu')
     while True :
         
         if len(imu_parser.parsed_data)==10 :

@@ -13,12 +13,13 @@ with open(os.path.join(path,("params.json")),'r') as fp :
 
 params=params["params"]
 user_ip = params["user_ip"]
+host_ip = params["host_ip"]
 gps_port = params["gps_dst_port"]
 
 
 def main():
     #GPRMC , GPGGA
-    gps_parser=UDP_GPS_Parser(user_ip, gps_port,'GPRMC')
+    gps_parser=UDP_GPS_Parser(host_ip, gps_port,'GPRMC')
     while True :
         
         if gps_parser.parsed_data!=None :

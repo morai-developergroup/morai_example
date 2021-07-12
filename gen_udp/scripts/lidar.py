@@ -13,6 +13,7 @@ with open(os.path.join(path,("params.json")),'r') as fp :
 
 params=params["params"]
 user_ip = params["user_ip"]
+host_ip = params["host_ip"]
 lidar_port = params["lidar_dst_port"]
 
 
@@ -20,6 +21,7 @@ params_lidar = {
     "Range" : 90, #min & max range of lidar azimuths
     "CHANNEL" : 32, #verticla channel of a lidar
     "localIP": user_ip,
+    "hostIP" : host_ip,
     "localPort": lidar_port,
     "Block_SIZE": int(1206)
 }
@@ -28,7 +30,7 @@ params_lidar = {
 
 def main():
 
-    udp_lidar = UDP_LIDAR_Parser(ip=params_lidar["localIP"], port=params_lidar["localPort"], params_lidar=params_lidar)
+    udp_lidar = UDP_LIDAR_Parser(ip=params_lidar["hostIP"], port=params_lidar["localPort"], params_lidar=params_lidar)
 
     while True :
 

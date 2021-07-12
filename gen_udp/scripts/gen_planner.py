@@ -36,13 +36,13 @@ traffic_greenlight_setting= params["traffic_greenlight_setting"]
 class planner :
 
     def __init__(self):
-        self.status=udp_parser(user_ip, status_port,'status')
-        self.obj=udp_parser(user_ip, object_port,'obj')
-        self.traffic=udp_parser(user_ip, get_traffic_port,'get_traffic')
+        self.status=udp_parser(host_ip, status_port,'status')
+        self.obj=udp_parser(host_ip, object_port,'obj')
+        self.traffic=udp_parser(host_ip, get_traffic_port,'get_traffic')
 
 
-        self.ctrl_cmd=udp_sender(host_ip,ctrl_cmd_port,'ctrl_cmd')
-        self.set_traffic=udp_sender(host_ip,set_traffic_port,'set_traffic')
+        self.ctrl_cmd=udp_sender(user_ip,ctrl_cmd_port,'ctrl_cmd')
+        self.set_traffic=udp_sender(user_ip,set_traffic_port,'set_traffic')
         
 
         self.txt_reader=pathReader()
@@ -50,7 +50,7 @@ class planner :
 
         self.traffic_info = [[58.50, 1180.41 ,'C119BS010001'],
                              [85.61, 1227.88 ,'C119BS010021'],
-                             [136.58,1351.98 ,'C119BS010026'],
+                             [136.58,1351.98 ,'C119BS010025'],
                              [141.02,1458.27 ,'C119BS010028'],
                              [139.39,1596.44 ,'C119BS010033'],
                              [48.71, 1208.02 ,'C119BS010005'],
@@ -198,8 +198,6 @@ if __name__ == "__main__":
 
 
     kicty=planner()
-    while True :
-        pass
  
 
 

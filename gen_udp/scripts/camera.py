@@ -12,19 +12,21 @@ with open(os.path.join(path,("params.json")),'r') as fp :
 
 params=params["params"]
 user_ip = params["user_ip"]
+host_ip = params["host_ip"]
 cam_port = params["cam_dst_port"]
 
 
 params_cam = {
     "localIP": user_ip,
     "localPort": cam_port,
+    "hostIP" : host_ip,
     "Block_SIZE": int(65000)
 }
 
 
 def main():
 
-    udp_cam = UDP_CAM_Parser(ip=params_cam["localIP"], port=params_cam["localPort"], params_cam=params_cam)
+    udp_cam = UDP_CAM_Parser(ip=params_cam["hostIP"], port=params_cam["localPort"], params_cam=params_cam)
 
     while True :
 
