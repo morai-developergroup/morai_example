@@ -156,19 +156,19 @@ class gen_planner():
             object_type.append(data.npc_list[num].type)
             object_pose_x.append(data.npc_list[num].position.x)
             object_pose_y.append(data.npc_list[num].position.y)
-            object_velocity.append(data.npc_list[num].velocity)
+            object_velocity.append(data.npc_list[num].velocity.x)
 
         for num in range(data.num_of_obstacle) :
             object_type.append(data.obstacle_list[num].type)
             object_pose_x.append(data.obstacle_list[num].position.x)
             object_pose_y.append(data.obstacle_list[num].position.y)
-            object_velocity.append(data.obstacle_list[num].velocity)
+            object_velocity.append(data.obstacle_list[num].velocity.x)
 
         for num in range(data.num_of_pedestrian) :
             object_type.append(data.pedestrian_list[num].type)
             object_pose_x.append(data.pedestrian_list[num].position.x)
             object_pose_y.append(data.pedestrian_list[num].position.y)
-            object_velocity.append(data.pedestrian_list[num].velocity)
+            object_velocity.append(data.pedestrian_list[num].velocity.x)
 
         self.object_info=[object_type,object_pose_x,object_pose_y,object_velocity]
         self.is_obj=True
