@@ -106,7 +106,7 @@ class wecar_planner():
 
                 self.servo_pub.publish(self.servo_msg)
                 self.motor_pub.publish(self.motor_msg)
-                # self.print_info()
+                self.print_info()
             
             if count==300 : ## global path 출력
                 global_path_pub.publish(self.global_path)
@@ -151,8 +151,6 @@ class wecar_planner():
                     
         # print(self.status_msg.yaw)
 
-
-
     def objectInfoCB(self,data): ## Object information Subscriber
         self.object_num=data.num_of_npcs+data.num_of_obstacle+data.num_of_pedestrian
         object_type=[]
@@ -163,19 +161,19 @@ class wecar_planner():
             object_type.append(data.npc_list[num].type)
             object_pose_x.append(data.npc_list[num].position.x)
             object_pose_y.append(data.npc_list[num].position.y)
-            object_velocity.append(data.npc_list[num].velocity)
+            object_velocity.append(data.npc_list[num].velocity.x)
 
         for num in range(data.num_of_obstacle) :
             object_type.append(data.obstacle_list[num].type)
             object_pose_x.append(data.obstacle_list[num].position.x)
             object_pose_y.append(data.obstacle_list[num].position.y)
-            object_velocity.append(data.obstacle_list[num].velocity)
+            object_velocity.append(data.obstacle_list[num].velocity.x)
 
         for num in range(data.num_of_pedestrian) :
             object_type.append(data.pedestrian_list[num].type)
             object_pose_x.append(data.pedestrian_list[num].position.x)
             object_pose_y.append(data.pedestrian_list[num].position.y)
-            object_velocity.append(data.pedestrian_list[num].velocity)
+            object_velocity.append(data.pedestrian_list[num].velocity.x)
 
         self.object_info=[object_type,object_pose_x,object_pose_y,object_velocity]
         self.is_obj=True

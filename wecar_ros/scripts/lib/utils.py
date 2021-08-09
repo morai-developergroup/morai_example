@@ -379,7 +379,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
     selected_lane=-1
     lattic_current_lane=current_lane
     look_distance=int(vehicle_status[3]*3.6*0.2*2)
-    print("\nlook_dist :\n", look_distance)
+    # print("\nlook_dist :\n", look_distance)
     if look_distance < 5 :
         look_distance=5     #min 5m
     if look_distance > 8 :
@@ -452,7 +452,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
             out_path.append(lattice_path)
         
         add_point_size=int(vehicle_status[3]*4*3.6)
-        print('add point',add_point_size)
+        # print('add point',add_point_size)
         if add_point_size>len(ref_path.poses)-2:
             add_point_size=len(ref_path.poses)
         elif add_point_size<10 :
