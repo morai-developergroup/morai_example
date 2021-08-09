@@ -7,7 +7,7 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import ERP42Info,ObjectStatusList,CtrlCmd,GetTrafficLightStatus,SetTrafficLight
+from morai_msgs.msg import EgoVehicleStatus,ObjectStatusList,CtrlCmd,GetTrafficLightStatus,SetTrafficLight
 from lib.utils import pathReader, findLocalPath,purePursuit,cruiseControl,vaildObject,pidController,velocityPlanning,latticePlanner
 import tf
 from math import cos,sin,sqrt,pow,atan2,pi
@@ -37,7 +37,7 @@ class erp_planner():
         ctrl_msg= CtrlCmd()
         
         #subscriber
-        rospy.Subscriber("/Ego_topic", ERP42Info, self.statusCB)
+        rospy.Subscriber("/Ego_topic", EgoVehicleStatus, self.statusCB)
         rospy.Subscriber("/Object_topic", ObjectStatusList, self.objectInfoCB) ## Object information Subscriber
         rospy.Subscriber("/GetTrafficLightStatus", GetTrafficLightStatus, self.getTL_callback)
 
@@ -81,7 +81,7 @@ class erp_planner():
         self.global_path=path_reader.read_txt(self.path_name+".txt")
         
         self.object_info_msg=ObjectStatusList()
-        self.status_msg=ERP42Info()
+        self.status_msg=EgoVehicleStatus()
 
         vel_planner=velocityPlanning(200/3.6,1.5)
         vel_profile=vel_planner.curveBasedVelocity(self.global_path,100)
@@ -98,10 +98,10 @@ class erp_planner():
                 local_path,self.current_waypoint=findLocalPath(self.global_path,self.status_msg)
                 
                 self.vo.get_object(self.object_num,self.object_info[0],self.object_info[1],self.object_info[2],self.object_info[3])
-                global_obj,local_obj=self.vo.calc_vaild_obj([self.status_msg.position_x,self.status_msg.position_y,self.status_msg.yaw/180*pi])
+                global_obj,local_obj=self.vo.calc_vaild_obj([self.status_msg.position.x,self.status_msg.position.y,self.status_msg.heading/180*pi])
 
                 ########################  lattice  ########################
-                vehicle_status=[self.status_msg.position_x,self.status_msg.position_y,(self.status_msg.yaw+90)/180*pi,self.status_msg.velocity/3.6]
+                vehicle_status=[self.status_msg.position.x,self.status_msg.position.y,(self.status_msg.heading)/180*pi,self.status_msg.velocity.x/3.6]
                 lattice_path,selected_lane=latticePlanner(local_path,global_obj,vehicle_status,lattice_current_lane)
                 lattice_current_lane=selected_lane
                                 
@@ -132,13 +132,13 @@ class erp_planner():
 
                 ctrl_msg.steering=pure_pursuit.steering_angle()
 
-                cc_vel = self.cc.acc(local_obj,self.status_msg.velocity,vel_profile[self.current_waypoint],self.status_msg)
+                cc_vel = self.cc.acc(local_obj,self.status_msg.velocity.x,vel_profile[self.current_waypoint],self.status_msg)
                 
                 target_velocity = cc_vel
                 ctrl_msg.velocity=cc_vel
                 
 
-                control_input=pid.pid(target_velocity,self.status_msg.velocity) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
+                control_input=pid.pid(target_velocity,self.status_msg.velocity.x) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
                 
                 if control_input > 0 :
                     ctrl_msg.accel= control_input
@@ -162,7 +162,7 @@ class erp_planner():
                 count=0
             count+=1
             self.steering_angle=ctrl_msg.steering
-            # self.print_info()
+            self.print_info()
             rate.sleep()
 
 
@@ -170,9 +170,9 @@ class erp_planner():
 
         os.system('clear')
         print('--------------------status-------------------------')
-        print('position :{0} ,{1}, {2}'.format(self.status_msg.position_x,self.status_msg.position_y,self.status_msg.position_z))
+        print('position :{0} ,{1}, {2}'.format(self.status_msg.position.x,self.status_msg.position.y,self.status_msg.position.z))
         print('velocity :{} km/h'.format(self.status_msg.velocity))
-        print('heading :{} deg'.format(self.status_msg.yaw-90))
+        print('heading :{} deg'.format(self.status_msg.heading))
 
         print('--------------------controller-------------------------')
         print('target steering_angle :{} deg'.format(self.steering_angle))
@@ -190,11 +190,11 @@ class erp_planner():
 
 
     def statusCB(self,data):
-        self.status_msg=ERP42Info()
+        self.status_msg=EgoVehicleStatus()
         self.status_msg=data
         br = tf.TransformBroadcaster()
-        br.sendTransform((self.status_msg.position_x, self.status_msg.position_y, self.status_msg.position_z),
-                        tf.transformations.quaternion_from_euler(0, 0, self.status_msg.yaw/180*pi),
+        br.sendTransform((self.status_msg.position.x, self.status_msg.position.y, self.status_msg.position.z),
+                        tf.transformations.quaternion_from_euler(0, 0, self.status_msg.heading/180*pi),
                         rospy.Time.now(),
                         "gps",
                         "map")
@@ -210,19 +210,19 @@ class erp_planner():
             object_type.append(data.npc_list[num].type)
             object_pose_x.append(data.npc_list[num].position.x)
             object_pose_y.append(data.npc_list[num].position.y)
-            object_velocity.append(data.npc_list[num].velocity)
+            object_velocity.append(data.npc_list[num].velocity.x)
 
         for num in range(data.num_of_obstacle) :
             object_type.append(data.obstacle_list[num].type)
             object_pose_x.append(data.obstacle_list[num].position.x)
             object_pose_y.append(data.obstacle_list[num].position.y)
-            object_velocity.append(data.obstacle_list[num].velocity)
+            object_velocity.append(data.obstacle_list[num].velocity.x)
 
         for num in range(data.num_of_pedestrian) :
             object_type.append(data.pedestrian_list[num].type)
             object_pose_x.append(data.pedestrian_list[num].position.x)
             object_pose_y.append(data.pedestrian_list[num].position.y)
-            object_velocity.append(data.pedestrian_list[num].velocity)
+            object_velocity.append(data.pedestrian_list[num].velocity.x)
 
         self.object_info=[object_type,object_pose_x,object_pose_y,object_velocity]
         self.is_obj=True

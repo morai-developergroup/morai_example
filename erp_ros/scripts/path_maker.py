@@ -5,7 +5,7 @@ import os
 import sys
 import rospy
 import rospkg
-from morai_msgs.msg  import ERP42Info
+from morai_msgs.msg  import EgoVehicleStatus
 from math import pi,cos,sin,pi,sqrt,pow
 from nav_msgs.msg import Path
 import tf
@@ -22,7 +22,7 @@ class test :
         self.make_path_name=arg[2]
         
 
-        rospy.Subscriber("/Ego_topic",ERP42Info, self.status_callback)
+        rospy.Subscriber("/Ego_topic",EgoVehicleStatus, self.status_callback)
         self.global_path_pub= rospy.Publisher('/global_path',Path, queue_size=1)
 
         self.is_status=False
@@ -44,9 +44,9 @@ class test :
         
 
     def path_make(self):
-        x=self.status_msg.position_x
-        y=self.status_msg.position_y
-        z=self.status_msg.position_z
+        x=self.status_msg.position.x
+        y=self.status_msg.position.y
+        z=self.status_msg.position.z
         distance=sqrt(pow(x-self.prev_x,2)+pow(y-self.prev_y,2))
         if distance > 0.3:
             data='{0}\t{1}\t{2}\n'.format(x,y,z)
@@ -59,8 +59,8 @@ class test :
         self.is_status=True
         self.status_msg=msg
         br = tf.TransformBroadcaster()
-        br.sendTransform((self.status_msg.position_x, self.status_msg.position_y, self.status_msg.position_z),
-                        tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.yaw+90)/180*pi),
+        br.sendTransform((self.status_msg.position.x, self.status_msg.position.y, self.status_msg.position.z),
+                        tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.heading)/180*pi),
                         rospy.Time.now(),
                         "gps",
                         "map")

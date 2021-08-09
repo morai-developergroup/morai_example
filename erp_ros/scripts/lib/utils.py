@@ -45,8 +45,8 @@ class pathReader :
 
 def findLocalPath(ref_path,status_msg):
     out_path=Path()
-    current_x=status_msg.position_x
-    current_y=status_msg.position_y
+    current_x=status_msg.position.x
+    current_y=status_msg.position.y
     current_waypoint=0
     min_dis=float('inf')
 
@@ -137,11 +137,11 @@ class purePursuit :
     
     def getEgoStatus(self,msg):
 
-        self.current_vel=msg.velocity  #kph
-        self.vehicle_yaw=msg.yaw/180*pi   # rad
-        self.current_postion.x=msg.position_x
-        self.current_postion.y=msg.position_y
-        self.current_postion.z=msg.position_z
+        self.current_vel=msg.velocity.x  #kph
+        self.vehicle_yaw=msg.heading/180*pi   # rad
+        self.current_postion.x=msg.position.x
+        self.current_postion.y=msg.position.y
+        self.current_postion.z=msg.position.z
 
 
 
