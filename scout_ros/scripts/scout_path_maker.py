@@ -5,12 +5,12 @@ import os
 import sys
 import rospy
 import rospkg
-from morai_msgs.msg  import EgoVehicleStatus
+from morai_msgs.msg  import GPSMessage
 from math import pi,cos,sin,pi,sqrt,pow
 from nav_msgs.msg import Path
 import tf
 from geometry_msgs.msg import PoseStamped
-
+import pyproj
 
 class test :
 
@@ -22,13 +22,13 @@ class test :
         self.make_path_name=arg[2]
         
 
-        rospy.Subscriber("/Ego_GPS",EgoVehicleStatus, self.status_callback)
-        self.global_path_pub= rospy.Publisher('/global_path',Path, queue_size=1)
+        rospy.Subscriber("/gps", GPSMessage, self.gpsCB)
 
-        self.is_status=False
+        self.is_gps = False
         self.prev_x = 0
         self.prev_y = 0
 
+        self.proj_UTM = pyproj.Proj(proj='utm', zone=52, ellps='WGS84', preserve_units=False)
         rospack=rospkg.RosPack()
         pkg_path=rospack.get_path('scout_ros')
         full_path=pkg_path +'/'+ self.path_folder_name+'/'+self.make_path_name+'.txt'
@@ -36,7 +36,7 @@ class test :
 
         rate=rospy.Rate(30)
         while not rospy.is_shutdown():
-            if self.is_status==True :
+            if self.is_gps == True :
                 self.path_make()
             rate.sleep()    
 
@@ -44,9 +44,9 @@ class test :
         
 
     def path_make(self):
-        x=self.status_msg.position.x
-        y=self.status_msg.position.y
-        z=self.status_msg.position.z
+        x=self.xy_zone[0]
+        y=self.xy_zone[1]
+        z=0
         distance=sqrt(pow(x-self.prev_x,2)+pow(y-self.prev_y,2))
         
         if distance > 0.5:
@@ -56,15 +56,10 @@ class test :
             self.prev_y=y
             print(x,y)
 
-    def status_callback(self,msg): ## Vehicl Status Subscriber 
-        self.is_status=True
-        self.status_msg=msg
-        br = tf.TransformBroadcaster()
-        br.sendTransform((self.status_msg.position.x, self.status_msg.position.y, self.status_msg.position.z),
-                        tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.heading)/180*pi),
-                        rospy.Time.now(),
-                        "gps",
-                        "map")
+
+    def gpsCB(self, data):
+        self.xy_zone = self.proj_UTM(data.longitude, data.latitude)
+        self.is_gps = True
         
 
 if __name__ == '__main__':
