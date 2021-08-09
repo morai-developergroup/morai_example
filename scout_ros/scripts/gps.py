@@ -5,7 +5,7 @@ from morai_msgs.msg import GPSMessage
 
 
 
-class erp_gps():
+class scout_gps():
     def __init__(self):
         rospy.init_node('gps', anonymous=True)
     
@@ -25,6 +25,6 @@ class erp_gps():
     
 if __name__ == '__main__':
     try:
-        gps=erp_gps()
+        gps=scout_gps()
     except rospy.ROSInterruptException:
         pass

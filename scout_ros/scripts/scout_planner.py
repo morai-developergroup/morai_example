@@ -6,11 +6,23 @@ import rospkg
 import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
+from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import PoseStamped,Point,Twist
 from morai_msgs.msg import EgoVehicleStatus,ObjectStatusList
 from utils import pathReader, findLocalPath,purePursuit,cruiseControl,vaildObject ,velocityPlanning ,latticePlanner
 import tf
+from scout_msgs.msg import ScoutStatus
 from math import cos,sin,sqrt,pow,atan2,pi
+from morai_msgs.msg import GPSMessage
+import pyproj
+from sensor_msgs.msg import Imu
+
+class scout_status:
+    def __init__(self):
+        self.position = Vector3()
+        self.heading = 0.0
+        self.velocity = Vector3()
+
 
 class gen_planner():
     def __init__(self):
@@ -27,6 +39,7 @@ class gen_planner():
         ctrl_pub = rospy.Publisher('/cmd_vel',Twist, queue_size=1) ## Vehicl Control
         ctrl_msg= Twist()
         odom_pub = rospy.Publisher('odom',Odometry, queue_size=1)
+        self.status_msg = scout_status()
         
 
         ########################  lattice  ########################
@@ -37,19 +50,23 @@ class gen_planner():
 
 
         #subscriber
-        rospy.Subscriber("/Ego_GPS", EgoVehicleStatus, self.statusCB) ## Vehicl Status Subscriber 
         rospy.Subscriber("/Object_topic", ObjectStatusList, self.objectInfoCB) ## Object information Subscriber
+        rospy.Subscriber("/gps", GPSMessage, self.gpsCB)
+        self.image_sub = rospy.Subscriber("/imu", Imu, self.imuCB)
+        self.ego_sub = rospy.Subscriber("/scout_status",ScoutStatus, self.statusCB)
 
         #def
-        self.is_status=False ## 차량 상태 점검
-        self.is_obj=False ## 장애물 상태 점검
+        self.is_status = False
+        self.is_obj = False ## 장애물 상태 점검
+        self.is_gps = False
+        self.is_imu = False
 
         #class
         
         pure_pursuit=purePursuit() ## purePursuit import
         self.cc=cruiseControl(0.5,1.0) ## cruiseControl import (object_vel_gain, object_dis_gain)
         self.vo=vaildObject() ## 장애물 유무 확인 (TrafficLight)
-        # stanley = stanley_control()
+        self.proj_UTM = pyproj.Proj(proj='utm', zone=52, ellps='WGS84', preserve_units=False)
 
         self.global_path = path_reader.read_txt(self.path_name)
 
@@ -66,9 +83,8 @@ class gen_planner():
         rate = rospy.Rate(30) # 30hz
 
         while not rospy.is_shutdown():
-            print(self.is_obj)
-            if self.is_status==True and self.is_obj == True:
-
+            if self.is_status == True and self.is_imu == True and self.is_gps == True and self.is_obj == True:
+                self.getScoutStatus()
                 ## global_path와 차량의 status_msg를 이용해 현제 waypoint와 local_path를 생성
                 local_path,self.current_waypoint=findLocalPath(self.global_path,self.status_msg) 
                 
@@ -114,8 +130,11 @@ class gen_planner():
                 count+=1
                 rate.sleep()
 
-    def statusCB(self,data): ## Vehicl Status Subscriber 
-        self.status_msg=data
+    def getScoutStatus(self): ## Vehicl Status Subscriber 
+        self.status_msg.position.x = self.xy_zone[0] - 302459.942
+        self.status_msg.position.y = self.xy_zone[1] - 4122635.537
+        self.status_msg.heading = self.euler_data[2] * 180 / pi
+        self.status_msg.velocity.x = self.velocity
         br = tf.TransformBroadcaster()
         br.sendTransform((self.status_msg.position.x, self.status_msg.position.y, self.status_msg.position.z),
                         tf.transformations.quaternion_from_euler(0, 0, (self.status_msg.heading)/180*pi),
@@ -123,7 +142,18 @@ class gen_planner():
                         "gps",
                         "map")
         self.is_status=True
-                    
+
+    def statusCB(self, data):
+        self.velocity = data.linear_velocity
+        self.is_status = True
+
+    def gpsCB(self, data):
+        self.xy_zone = self.proj_UTM(data.longitude, data.latitude)
+        self.is_gps = True
+
+    def imuCB(self, data):
+        self.euler_data = tf.transformations.euler_from_quaternion((data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w))
+        self.is_imu = True
 
 
 
@@ -137,19 +167,19 @@ class gen_planner():
             object_type.append(data.npc_list[num].type)
             object_pose_x.append(data.npc_list[num].position.x)
             object_pose_y.append(data.npc_list[num].position.y)
-            object_velocity.append(data.npc_list[num].velocity)
+            object_velocity.append(data.npc_list[num].velocity.x)
 
         for num in range(data.num_of_obstacle) :
             object_type.append(data.obstacle_list[num].type)
             object_pose_x.append(data.obstacle_list[num].position.x)
             object_pose_y.append(data.obstacle_list[num].position.y)
-            object_velocity.append(data.obstacle_list[num].velocity)
+            object_velocity.append(data.obstacle_list[num].velocity.x)
 
         for num in range(data.num_of_pedestrian) :
             object_type.append(data.pedestrian_list[num].type)
             object_pose_x.append(data.pedestrian_list[num].position.x)
             object_pose_y.append(data.pedestrian_list[num].position.y)
-            object_velocity.append(data.pedestrian_list[num].velocity)
+            object_velocity.append(data.pedestrian_list[num].velocity.x)
 
         self.object_info_msg=[object_type,object_pose_x,object_pose_y,object_velocity]
         self.is_obj=True
