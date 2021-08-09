@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-  
-
 from lib.morai_udp_parser import udp_parser,udp_sender
 from lib.utils import pathReader,findLocalPath,purePursuit,Point,cruiseControl,vaildObject,velocityPlanning,pidController
 import time
@@ -9,10 +7,9 @@ import threading
 from math import cos,sin,sqrt,pow,atan2,pi
 import os,json
 
-# path = os.path.dirname( os.path.abspath( __file__ ) )
+
 path = os.path.dirname( os.path.abspath( __file__ ) )
-# path = os.path.dirname( os.path.abspath( C:/Users/dymoon/Desktop/vGen_fix/vGen_Example/gen_udp/scripts) )
-# path = C:Users/dymoon/Desktop/vGen_fix/vGen_Example/gen_udp/scripts/params.json
+
 with open(os.path.join(path,("params.json")),'r') as fp :
     params = json.load(fp)
 
@@ -103,28 +100,26 @@ class planner :
         status_data=self.status.get_data()
         obj_data=self.obj.get_data()
         traffic_data = self.traffic.get_data()
-        position_x=status_data[4]
-        position_y=status_data[5]
-        position_z=status_data[6]
-        heading=status_data[9]# degree
-        velocity=status_data[10]
+        position_x=status_data[12]
+        position_y=status_data[13]
+        position_z=status_data[14]
+        heading=status_data[17]# degree
+        velocity=status_data[18]
 
         #set trafficlight (green)
         if not len(traffic_data) == 0 and traffic_greenlight_setting == "True": #set trafficlight (green)                        
-            self.set_traffic.send_data([False,traffic_data[1],16])
-            traffic_data[3]=16
-
+            self.set_traffic.send_data([False,traffic_data[0],16])
+            traffic_data[2]=16
 
         #fine_local_path, waypoint
         local_path,current_waypoint =findLocalPath(self.global_path,position_x,position_y)
-        
         
         ## 장애물의 숫자와 Type 위치 속도 (object_num, object type, object pose_x, object pose_y, object velocity)
         self.vo.get_object(obj_data)
         global_obj,local_obj=self.vo.calc_vaild_obj([position_x,position_y,(heading)/180*pi])
 
         if not len(traffic_data) == 0:
-            self.cc.checkObject(local_path,global_obj,local_obj,traffic_data[1],traffic_data[3])
+            self.cc.checkObject(local_path,global_obj,local_obj,traffic_data[0],traffic_data[2])
         else:
             self.cc.checkObject(local_path,global_obj,local_obj,[],[])         
 
@@ -134,12 +129,10 @@ class planner :
             
         steering_angle=self.pure_pursuit.steering_angle()
 
-
         #ACC                 
         cc_vel = self.cc.acc(local_obj,velocity,self.vel_profile[current_waypoint]) ## advanced cruise control 적용한 속도 계획        
         target_velocity = cc_vel
               
-
         control_input=self.pid.pid(target_velocity,velocity) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
         if control_input > 0 :
             accel= control_input
@@ -150,53 +143,51 @@ class planner :
 
         ctrl_mode = 2 # 2 = AutoMode / 1 = KeyBoard
         Gear = 4 # 4 1 : (P / parking ) 2 (R / reverse) 3 (N / Neutral)  4 : (D / Drive) 5 : (L)
-
-
-        self.ctrl_cmd.send_data([ctrl_mode,Gear,accel,brake,steering_angle])
-
-        ###################
-
-
-        self.print_info(status_data,obj_data,traffic_data,position_x,position_y,position_z,heading,velocity,steering_angle,current_waypoint,target_velocity,accel,brake)
+        cmd_type = 1 # 1 : Throttle  /  2 : Velocity  /  3 : Acceleration
         
+        send_velocity = 0 #cmd_type이 2일때 원하는 속도를 넣어준다.
+        acceleration = 0 #cmd_type이 3일때 원하는 가속도를 넣어준다.
+
+        
+        self.ctrl_cmd.send_data([ctrl_mode,Gear,cmd_type,send_velocity,acceleration,accel,brake,steering_angle])
+
+        ######PRINT_INFO#######
+        self.print_info(status_data,obj_data,traffic_data,position_x,position_y,position_z,heading,velocity,steering_angle,current_waypoint,target_velocity,accel,brake)
 
 
     def print_info(self,status_data,obj_data,traffic_data,position_x,position_y,position_z,heading,velocity,steering_angle,current_waypoint,target_velocity,accel,brake):
         os.system('cls')
         print('--------------------status-------------------------')
-        print('ctrl Mode :{}'.format(status_data[0]))
-        print('Gear :{}'.format(status_data[1]))
-        print('signed velocity :{}'.format(status_data[2]))
-        print('Map data id :{}'.format(status_data[3]))
-        print('position :{0} ,{1}, {2}'.format(position_x,position_y,position_z))
-        print('velocity :{} km/h'.format(velocity,heading))
-        print('heading :{} deg'.format(heading-90))
+        print('ctrl Mode : {}'.format(status_data[0]))
+        print('Gear : {}'.format(status_data[1]))
+        print('signed velocity : {}'.format(status_data[2]))
+        print('Map data id : {}'.format(status_data[3]))
+        print('position : {0} ,{1}, {2}'.format(position_x,position_y,position_z))
+        print('velocity : {} km/h'.format(velocity,heading))
+        print('heading : {} deg'.format(heading-90))
 
         print('--------------------object-------------------------')
-        print('object num :{}'.format(len(obj_data)))
+        print('object num : {}'.format(len(obj_data)))
         for i,obj_info in enumerate(obj_data) :
-            print('{0} : type = {1}, x = {2}, y = {3}, z = {4} '.format(i,obj_info[0],obj_info[1],obj_info[2],obj_info[3]))
+            print('id[{0}] : type = {1}, x = {2}, y = {3}, z = {4} '.format(obj_info[0],obj_info[1],obj_info[1],obj_info[2],obj_info[3]))
 
         print('--------------------controller-------------------------')
-        print('target steering_angle :{} deg'.format(steering_angle))
-        print('target target_velocity :{} km/h'.format(target_velocity))
-        print('target accel :{} '.format(accel))
-        print('target brake :{} '.format(brake))
+        print('target steering_angle : {} deg'.format(steering_angle))
+        print('target target_velocity : {} km/h'.format(target_velocity))
+        print('target accel : {} '.format(accel))
+        print('target brake : {} '.format(brake))
 
         print('--------------------localization-------------------------')
-        print('all waypoint size: {} '.format(len(self.global_path)))
+        print('all waypoint size : {} '.format(len(self.global_path)))
         print('current waypoint : {} '.format(current_waypoint))
 
         print('--------------------trafficLight-------------------------')
-        if len(traffic_data) ==4:
-            print('traffic mode : {}'.format(traffic_data[0]))
-            print('traffic index : {}'.format(traffic_data[1]))
-            print('traffic type : {}'.format(traffic_data[2]))
-            print('traffic status : {}'.format(traffic_data[3]))
+        if len(traffic_data) ==3:
+            print('traffic index : {}'.format(traffic_data[0]))
+            print('traffic type : {}'.format(traffic_data[1]))
+            print('traffic status : {}'.format(traffic_data[2]))
 
 if __name__ == "__main__":
-
-
     kicty=planner()
  
 

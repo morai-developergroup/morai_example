@@ -221,7 +221,6 @@ class cruiseControl: ## ACC(advanced cruise control) 적용 ##
 
                     if global_vaild_object[i][0]==3 :
                         traffic_sign='STOP'
-                    
 
                         if len(traffic_data_1)!=0  and  global_vaild_object[i][3] == traffic_data_1 :
                             # if traffic_data_3 == 48 or traffic_data_3==16   :   #
@@ -350,21 +349,15 @@ class vaildObject : ## 장애물 유무 확인 (차량, 사람, 정지선 신호
         self.all_object=object_info()
         self.all_object.num_of_objects=len(obj_data)
         for i,obj_info in enumerate(obj_data) :
-            self.all_object.object_type.append(obj_data[i][0])
-            self.all_object.pose_x.append(obj_data[i][1])
-            self.all_object.pose_y.append(obj_data[i][2])
-            self.all_object.velocity.append(obj_data[i][8])
+            self.all_object.object_type.append(obj_data[i][1])
+            self.all_object.pose_x.append(obj_data[i][2])
+            self.all_object.pose_y.append(obj_data[i][3])
+            self.all_object.velocity.append(obj_data[i][12])
             
-            
-        
-
 
     def calc_vaild_obj(self,ego_pose):  # x, y, heading
         global_object_info=[]
         loal_object_info=[]
-        
-        # if self.all_object.num_of_objects > 0:
-
         tmp_theta=ego_pose[2]
         tmp_translation=[ego_pose[0],ego_pose[1]]
         tmp_t=np.array([[cos(tmp_theta), -sin(tmp_theta),tmp_translation[0]],
@@ -375,7 +368,7 @@ class vaildObject : ## 장애물 유무 확인 (차량, 사람, 정지선 신호
                             [0,0,1]])
 
         for num in range(self.all_object.num_of_objects):
-            print(self.all_object.pose_x[num], self.all_object.pose_y[num])
+            # print(self.all_object.pose_x[num], self.all_object.pose_y[num])
             global_result=np.array([[self.all_object.pose_x[num]],[self.all_object.pose_y[num]],[1]])
             local_result=tmp_det_t.dot(global_result)
             if local_result[0][0]> 0 :
