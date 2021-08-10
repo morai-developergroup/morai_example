@@ -60,8 +60,6 @@ class erpSerial :
         else :
             self.alive=0
 
-        # print(self.alive)
-    
     def __del__(self):
         self.ser.close()
 

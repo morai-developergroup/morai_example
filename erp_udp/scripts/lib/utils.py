@@ -42,7 +42,7 @@ class purePursuit :
         self.forward_point=Point()
         self.current_postion=Point()
         self.is_look_forward_point=False
-        self.vehicle_length=1
+        self.vehicle_length=2
         self.lfd=5
         self.min_lfd=5
         self.max_lfd=30
@@ -80,20 +80,19 @@ class purePursuit :
             if rotated_point.x>0 :
                 dis=sqrt(pow(rotated_point.x,2)+pow(rotated_point.y,2))
                 if dis>= self.lfd :
-                    self.lfd=self.current_vel*0.2
+                    self.lfd=self.current_vel*0.3
                     if self.lfd < self.min_lfd : 
                         self.lfd=self.min_lfd
                     elif self.lfd > self.max_lfd :
                         self.lfd=self.max_lfd
                     self.forward_point=path_point
                     self.is_look_forward_point=True
-                    
                     break
         
         theta=atan2(rotated_point.y,rotated_point.x)
 
         if self.is_look_forward_point :
-            self.steering=atan2((2*self.vehicle_length*sin(theta)),self.lfd)*180/pi
+            self.steering=atan2((2*self.vehicle_length*sin(theta)),self.lfd)
             return self.steering #deg
         else : 
             print("no found forward point")
@@ -116,12 +115,10 @@ def findLocalPath(ref_path,position_x,position_y):
             min_dis=dis
             current_waypoint=i
 
-
     if current_waypoint+50 > len(ref_path) :
         last_local_waypoint= len(ref_path)
     else :
         last_local_waypoint=current_waypoint+50
-
 
     for i in range(current_waypoint,last_local_waypoint) :
         pose=[]
