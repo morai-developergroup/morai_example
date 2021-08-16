@@ -38,6 +38,7 @@ class wecar_planner():
         self.is_status=False ## 차량 상태 점검
         self.is_obj=False ## 장애물 상태 점검
         self.steering_angle_to_servo_offset=0.5304 ## servo moter offset
+        self.rpm_gain = 4616
         self.motor_msg=Float64()
         self.servo_msg=Float64()
         
@@ -53,7 +54,7 @@ class wecar_planner():
         #read path
         self.global_path=path_reader.read_txt(self.path_name+".txt") ## 출력할 경로의 이름
         
-        vel_planner=velocityPlanning(60/3.6,0.15) ## 속도 계획
+        vel_planner=velocityPlanning(10,0.15) ## 속도 계획
         vel_profile=vel_planner.curveBasedVelocity(self.global_path,30)
         
 
@@ -99,7 +100,7 @@ class wecar_planner():
                 self.cc_vel = self.cc.acc(local_obj,self.status_msg.velocity.x,vel_profile[self.current_waypoint],self.status_msg) ## advanced cruise control 적용한 속도 계획
 
                 self.servo_msg = self.steering*0.021 + self.steering_angle_to_servo_offset
-                self.motor_msg = self.cc_vel *4616/3.6
+                self.motor_msg = self.cc_vel *self.rpm_gain /3.6
                 
     
                 local_path_pub.publish(local_path) ## Local Path 출력
