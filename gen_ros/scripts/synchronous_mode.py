@@ -7,7 +7,7 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import EgoVehicleStatus,ObjectInfo,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo
+from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo
 from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse
 from lib.utils import pathReader, findLocalPath,purePursuit,pidController,velocityPlanning
 import tf
