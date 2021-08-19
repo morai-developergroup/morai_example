@@ -7,7 +7,7 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo
+from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData
 from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse
 from lib.utils import pathReader, findLocalPath,purePursuit,pidController,velocityPlanning
 import tf
@@ -26,8 +26,9 @@ class sync_planner():
         local_path_pub= rospy.Publisher('/local_path',Path, queue_size=1) ## local_path publisher
 
         odom_pub= rospy.Publisher('/basic_odom',Odometry,queue_size=1)
+        sensor_capture_pub = rospy.Publisher('/SaveSensorData',SaveSensorData, queue_size=1) # sensor capture publisher
 
-        # # service
+        #service
         rospy.wait_for_service('/SyncModeCmd')
         rospy.wait_for_service('/SyncModeWaitForTick')
 
@@ -37,9 +38,12 @@ class sync_planner():
         #def
         self.global_path=path_reader.read_txt(self.path_name+".txt") ## 출력할 경로의 이름
 
+
+
         # def tick service
         sync_mode_on = SyncModeCmd()
         sync_mode_on.user_id = "sync_master"
+        sync_mode_on.time_step = 20 # 20ms
         sync_mode_on.start_sync_mode = True
 
         print("Synchronous Mode ON")
@@ -54,6 +58,15 @@ class sync_planner():
         tick_resp = tick_wait_srv(tick)
         self.status_msg = tick_resp.response.vehicle_status
         self.tfBraodcaster()
+
+        # sensor capture initialize
+        sensor_capture_cmd = SaveSensorData()
+        sensor_capture_cmd.is_custom_file_name = False
+        sensor_capture_cmd.custum_file_name = ""# str(next_frame)
+        sensor_capture_cmd.file_dir="SyncModeSensorData"
+
+
+        sensor_capture_pub.publish(sensor_capture_cmd)
 
 
         #class
@@ -94,18 +107,21 @@ class sync_planner():
 
                 # Send Tick
                 tick.frame = next_frame +1 
-                next_frame += 1
+                
                 tick_resp = tick_wait_srv(tick)
                 self.status_msg = tick_resp.response.vehicle_status
                 self.tfBraodcaster()
 
+                # capture sensor
+                sensor_capture_cmd.custum_file_name=str(next_frame)
+                sensor_capture_pub.publish(sensor_capture_cmd)
 
                 if count==30 : ## global path 출력
                     global_path_pub.publish(self.global_path)
                     count=0
                 count+=1
+                next_frame += 1
                 rate.sleep()
-                print(next_frame)
             except KeyboardInterrupt:
                 sync_mode_on.start_sync_mode = False
                 sync_mode_resp = sync_mode_srv(sync_mode_on)
