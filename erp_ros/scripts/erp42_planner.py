@@ -182,8 +182,7 @@ class erp_planner():
         print('current waypoint : {} '.format(self.current_waypoint))
 
         if self.is_traffic==True:
-            print('--------------------trafficLight-------------------------')        
-            print('traffic mode : {}'.format(self.tl_msg.isAutoMode))
+            print('--------------------trafficLight-------------------------')
             print('traffic index : {}'.format(self.tl_msg.trafficLightIndex))
             print('traffic type : {}'.format(self.tl_msg.trafficLightType))
             print('traffic status : {}'.format(self.tl_msg.trafficLightStatus))
