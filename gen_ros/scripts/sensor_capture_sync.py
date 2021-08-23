@@ -7,8 +7,8 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData
-from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse
+from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData , SyncModeSaveSensorData
+from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse , MoraiSyncModeSaveSensorDataSrv
 from lib.utils import pathReader, findLocalPath,purePursuit,pidController,velocityPlanning
 import tf
 from math import cos,sin,sqrt,pow,atan2,pi
@@ -26,14 +26,15 @@ class sync_planner():
         local_path_pub= rospy.Publisher('/local_path',Path, queue_size=1) ## local_path publisher
 
         odom_pub= rospy.Publisher('/basic_odom',Odometry,queue_size=1)
-        sensor_capture_pub = rospy.Publisher('/SaveSensorData',SaveSensorData, queue_size=1) # sensor capture publisher
 
         #service
         rospy.wait_for_service('/SyncModeCmd')
         rospy.wait_for_service('/SyncModeWaitForTick')
+        rospy.wait_for_service('/SyncModeSaveSensorData')
 
         sync_mode_srv = rospy.ServiceProxy('SyncModeCmd', MoraiSyncModeCmdSrv)
         tick_wait_srv = rospy.ServiceProxy('SyncModeWaitForTick', MoraiWaitForTickSrv)
+        sensor_capture_srv = rospy.ServiceProxy('SyncModeSaveSensorData', MoraiSyncModeSaveSensorDataSrv)
 
         #def
         self.global_path=path_reader.read_txt(self.path_name+".txt") ## 출력할 경로의 이름
@@ -60,14 +61,11 @@ class sync_planner():
         self.tfBraodcaster()
 
         # sensor capture initialize
-        sensor_capture_cmd = SaveSensorData()
-        sensor_capture_cmd.is_custom_file_name = False
-        sensor_capture_cmd.custum_file_name = ""# str(next_frame)
-        sensor_capture_cmd.file_dir="SyncModeSensorData"
-
-
-        sensor_capture_pub.publish(sensor_capture_cmd)
-
+        sensor_capture_req = SyncModeSaveSensorData()
+        sensor_capture_req.is_custom_file_name = True
+        sensor_capture_req.frame = next_frame
+        sensor_capture_req.custom_file_name = str(next_frame)
+        sensor_capture_req.file_dir="SyncModeSensorData"
 
         #class
         pure_pursuit=purePursuit() ## purePursuit import
@@ -79,9 +77,10 @@ class sync_planner():
         count=0
         rate = rospy.Rate(30) # 30hz
 
-        
+        print("Start Frame : ", next_frame + 1)        
         while not rospy.is_shutdown():
             try:
+                
                 ## global_path와 차량의 status_msg를 이용해 현제 waypoint와 local_path를 생성
                 local_path,self.current_waypoint=findLocalPath(self.global_path,self.status_msg)
 
@@ -105,22 +104,25 @@ class sync_planner():
                 local_path_pub.publish(local_path) ## Local Path 출력
                 odom_pub.publish(self.makeOdomMsg())
 
+                next_frame += 1
+
+                # Sensor Capture
+                sensor_capture_req.frame = next_frame
+                sensor_capture_req.custom_file_name = str(next_frame)
+                sensor_capture_resp = sensor_capture_srv(sensor_capture_req)
+
+
                 # Send Tick
-                tick.frame = next_frame +1 
-                
+                tick.frame = next_frame 
                 tick_resp = tick_wait_srv(tick)
                 self.status_msg = tick_resp.response.vehicle_status
                 self.tfBraodcaster()
-
-                # capture sensor
-                sensor_capture_cmd.custum_file_name=str(next_frame)
-                sensor_capture_pub.publish(sensor_capture_cmd)
 
                 if count==30 : ## global path 출력
                     global_path_pub.publish(self.global_path)
                     count=0
                 count+=1
-                next_frame += 1
+
                 rate.sleep()
             except KeyboardInterrupt:
                 sync_mode_on.start_sync_mode = False
