@@ -7,8 +7,8 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData , SyncModeSaveSensorData
-from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse , MoraiSyncModeSaveSensorDataSrv
+from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData , SyncModeSaveSensorData, SyncModeCtrlCmd
+from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse , MoraiSyncModeSaveSensorDataSrv , MoraiSyncModeCtrlCmdSrv
 from lib.utils import pathReader, findLocalPath,purePursuit,pidController,velocityPlanning
 import tf
 from math import cos,sin,sqrt,pow,atan2,pi
@@ -30,11 +30,11 @@ class sync_planner():
         #service
         rospy.wait_for_service('/SyncModeCmd')
         rospy.wait_for_service('/SyncModeWaitForTick')
-        rospy.wait_for_service('/SyncModeSaveSensorData')
+        rospy.wait_for_service('/SyncModeCtrlCmd')
 
         sync_mode_srv = rospy.ServiceProxy('SyncModeCmd', MoraiSyncModeCmdSrv)
         tick_wait_srv = rospy.ServiceProxy('SyncModeWaitForTick', MoraiWaitForTickSrv)
-        sensor_capture_srv = rospy.ServiceProxy('SyncModeSaveSensorData', MoraiSyncModeSaveSensorDataSrv)
+        ctrl_cmd_srv = rospy.ServiceProxy('SyncModeCtrlCmd', MoraiSyncModeCtrlCmdSrv)
 
         #def
         self.global_path=path_reader.read_txt(self.path_name+".txt") ## 출력할 경로의 이름
@@ -49,23 +49,19 @@ class sync_planner():
 
         print("Synchronous Mode ON")
         sync_mode_resp = sync_mode_srv(sync_mode_on)
-
         next_frame = sync_mode_resp.response.frame + 1
 
         tick=WaitForTick()
         tick.user_id = sync_mode_resp.response.user_id
         tick.frame = next_frame
-
         tick_resp = tick_wait_srv(tick)
+
+        # status 
         self.status_msg = tick_resp.response.vehicle_status
         self.tfBraodcaster()
 
-        # sensor capture initialize
-        sensor_capture_req = SyncModeSaveSensorData()
-        sensor_capture_req.is_custom_file_name = True
-        sensor_capture_req.frame = next_frame
-        sensor_capture_req.custom_file_name = str(next_frame)
-        sensor_capture_req.file_dir="SyncModeSensorData"
+        # control var
+        ctrl_cmd = SyncModeCtrlCmd()
 
         #class
         pure_pursuit=purePursuit() ## purePursuit import
@@ -80,40 +76,39 @@ class sync_planner():
         print("Start Frame : ", next_frame + 1)        
         while not rospy.is_shutdown():
             try:
-                
                 ## global_path와 차량의 status_msg를 이용해 현제 waypoint와 local_path를 생성
                 local_path,self.current_waypoint=findLocalPath(self.global_path,self.status_msg)
 
                 # pure pursuit control
                 pure_pursuit.getPath(local_path) ## pure_pursuit 알고리즘에 Local path 적용
                 pure_pursuit.getEgoStatus(self.status_msg) ## pure_pursuit 알고리즘에 차량의 status 적용
-                tick.command.steering=-pure_pursuit.steering_angle()/180*pi
+                ctrl_cmd.command.steering=-pure_pursuit.steering_angle()/180*pi
         
                 target_velocity = vel_profile[self.current_waypoint]
 
                 control_input=pid.pid(target_velocity,self.status_msg.velocity) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
 
                 if control_input > 0 :
-                    tick.command.accel = control_input
-                    tick.command.brake = 0
+                    ctrl_cmd.command.accel = control_input
+                    ctrl_cmd.command.brake = 0
                 else :
-                    tick.command.accel = 0
-                    tick.command.brake = -control_input
+                    ctrl_cmd.command.accel = 0
+                    ctrl_cmd.command.brake = -control_input
 
 
                 local_path_pub.publish(local_path) ## Local Path 출력
                 odom_pub.publish(self.makeOdomMsg())
-
+                
                 next_frame += 1
 
-                # Sensor Capture
-                sensor_capture_req.frame = next_frame
-                sensor_capture_req.custom_file_name = str(next_frame)
-                sensor_capture_resp = sensor_capture_srv(sensor_capture_req)
+                ctrl_cmd.frame = next_frame
 
+                # send ctrl cmd 
+                ctrl_cmd.is_sensor_capture = True
+                ctrl_cmd_resp = ctrl_cmd_srv(ctrl_cmd)
 
                 # Send Tick
-                tick.frame = next_frame 
+                tick.frame = 0 # next_frame 
                 tick_resp = tick_wait_srv(tick)
                 self.status_msg = tick_resp.response.vehicle_status
                 self.tfBraodcaster()
