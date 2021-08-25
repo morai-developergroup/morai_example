@@ -20,7 +20,8 @@ class test :
         arg = rospy.myargv(argv=sys.argv)
         self.path_folder_name=arg[1]
         self.make_path_name=arg[2]
-        
+        self.x_offset=float(arg[3])
+        self.y_offset=float(arg[4])
 
         rospy.Subscriber("/gps", GPSMessage, self.gpsCB)
 
@@ -44,8 +45,8 @@ class test :
         
 
     def path_make(self):
-        x=self.xy_zone[0]
-        y=self.xy_zone[1]
+        x=self.xy_zone[0]- self.x_offset
+        y=self.xy_zone[1]- self.y_offset
         z=0
         distance=sqrt(pow(x-self.prev_x,2)+pow(y-self.prev_y,2))
         

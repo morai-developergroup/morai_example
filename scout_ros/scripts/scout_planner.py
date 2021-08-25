@@ -30,6 +30,8 @@ class gen_planner():
 
         arg = rospy.myargv(argv=sys.argv)
         self.path_name=arg[1]
+        self.x_offset=float(arg[2])
+        self.y_offset=float(arg[3])
         
         path_reader=pathReader('scout_ros') ## 경로 파일의 위치
 
@@ -83,6 +85,7 @@ class gen_planner():
         rate = rospy.Rate(30) # 30hz
 
         while not rospy.is_shutdown():
+            print(self.is_status , self.is_imu ,self.is_gps ,self.is_obj)
             if self.is_status == True and self.is_imu == True and self.is_gps == True and self.is_obj == True:
                 self.getScoutStatus()
                 ## global_path와 차량의 status_msg를 이용해 현제 waypoint와 local_path를 생성
@@ -131,8 +134,8 @@ class gen_planner():
                 rate.sleep()
 
     def getScoutStatus(self): ## Vehicl Status Subscriber 
-        self.status_msg.position.x = self.xy_zone[0] - 302459.942
-        self.status_msg.position.y = self.xy_zone[1] - 4122635.537
+        self.status_msg.position.x = self.xy_zone[0] - self.x_offset
+        self.status_msg.position.y = self.xy_zone[1] - self.y_offset
         self.status_msg.heading = self.euler_data[2] * 180 / pi
         self.status_msg.velocity.x = self.velocity
         br = tf.TransformBroadcaster()
