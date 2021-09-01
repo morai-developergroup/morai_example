@@ -7,8 +7,8 @@ import numpy as np
 from nav_msgs.msg import Path,Odometry
 from std_msgs.msg import Float64,Int16,Float32MultiArray
 from geometry_msgs.msg import PoseStamped,Point
-from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SaveSensorData , SyncModeSaveSensorData, SyncModeCtrlCmd
-from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest, MoraiScenarioLoadSrvResponse , MoraiSyncModeSaveSensorDataSrv , MoraiSyncModeCtrlCmdSrv
+from morai_msgs.msg import EgoVehicleStatus,CtrlCmd,GetTrafficLightStatus,SetTrafficLight, SyncModeCmd, SyncModeCmdResponse, WaitForTick, WaitForTickResponse, EventInfo, SyncModeCtrlCmd
+from morai_msgs.srv import MoraiSyncModeCmdSrv ,MoraiWaitForTickSrv , MoraiEventCmdSrv ,MoraiScenarioLoadSrvRequest , MoraiSyncModeCtrlCmdSrv
 from lib.utils import pathReader, findLocalPath,purePursuit,pidController,velocityPlanning
 import tf
 from math import cos,sin,sqrt,pow,atan2,pi
@@ -47,7 +47,7 @@ class sync_planner():
         # def tick service
         sync_mode_on = SyncModeCmd()
         sync_mode_on.user_id = "sync_master"
-        sync_mode_on.time_step = 60 # 20ms
+        sync_mode_on.time_step = 20 # 20ms
         sync_mode_on.start_sync_mode = True
 
         frame_step = sync_mode_on.time_step / TIMES_STEP
@@ -67,7 +67,7 @@ class sync_planner():
 
         # control var
         ctrl_cmd = SyncModeCtrlCmd()
-        ctrl_cmd.is_sensor_capture = sensor_capture_mode
+        ctrl_cmd.sensor_capture = sensor_capture_mode
 
         #class
         pure_pursuit=purePursuit() ## purePursuit import
