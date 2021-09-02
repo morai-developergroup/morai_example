@@ -83,7 +83,7 @@ class erp_planner():
         self.object_info_msg=ObjectStatusList()
         self.status_msg=EgoVehicleStatus()
 
-        vel_planner=velocityPlanning(200/3.6,1.5)
+        vel_planner=velocityPlanning(60/3.6,1.5)
         vel_profile=vel_planner.curveBasedVelocity(self.global_path,100)
 
         #time var
@@ -130,15 +130,14 @@ class erp_planner():
                 pure_pursuit.getPath(local_path)
                 pure_pursuit.getEgoStatus(self.status_msg)
 
-                ctrl_msg.steering=pure_pursuit.steering_angle()
-
+                ctrl_msg.steering=-pure_pursuit.steering_angle() / 180 * pi
                 cc_vel = self.cc.acc(local_obj,self.status_msg.velocity.x,vel_profile[self.current_waypoint],self.status_msg)
                 
                 target_velocity = cc_vel
                 ctrl_msg.velocity=cc_vel
                 
 
-                control_input=pid.pid(target_velocity,self.status_msg.velocity.x) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
+                control_input=pid.pid(target_velocity,self.status_msg.velocity) ## 속도 제어를 위한 PID 적용 (target Velocity, Status Velocity)
                 
                 if control_input > 0 :
                     ctrl_msg.accel= control_input
@@ -155,14 +154,16 @@ class erp_planner():
 
                 local_path_pub.publish(local_path)
                 ctrl_pub.publish(ctrl_msg)
+
+                self.steering_angle=ctrl_msg.steering
+                self.print_info()
             
             
             if count/300==1 :
                 global_path_pub.publish(self.global_path)
                 count=0
             count+=1
-            self.steering_angle=ctrl_msg.steering
-            self.print_info()
+
             rate.sleep()
 
 

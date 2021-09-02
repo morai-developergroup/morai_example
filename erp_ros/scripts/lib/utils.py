@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import rospy
 import rospkg
@@ -10,7 +9,7 @@ from math import cos,sin,sqrt,pow,atan2,pi
 import tf
 
 
-class pathReader :
+class pathReader :  ## 텍스트 파일에서 경로를 출력 ##
     def __init__(self,pkg_name):
         rospack=rospkg.RosPack()
         self.file_path=rospack.get_path(pkg_name)
@@ -38,12 +37,14 @@ class pathReader :
         
         
         openFile.close()
-        return out_path
+        return out_path ## 읽어온 경로를 global_path로 반환 ##
       
 
 
 
-def findLocalPath(ref_path,status_msg):
+
+
+def findLocalPath(ref_path,status_msg): ## global_path와 차량의 status_msg를 이용해 현재waypoint와 local_path를 생성 ##
     out_path=Path()
     current_x=status_msg.position.x
     current_y=status_msg.position.y
@@ -78,7 +79,9 @@ def findLocalPath(ref_path,status_msg):
         tmp_pose.pose.orientation.w=1
         out_path.poses.append(tmp_pose)
 
-    return out_path,current_waypoint
+    return out_path,current_waypoint ## local_path와 waypoint를 반환 ##
+
+
 
 class velocityPlanning :
     def __init__(self,car_max_speed,road_friction):
@@ -120,15 +123,15 @@ class velocityPlanning :
         return out_vel_plan
 
 
-class purePursuit :
+class purePursuit : ## purePursuit 알고리즘 적용 ##
     def __init__(self):
         self.forward_point=Point()
         self.current_postion=Point()
         self.is_look_forward_point=False
-        self.lfd=2
+        self.vehicle_length=2.8
+        self.lfd=5
         self.min_lfd=2
         self.max_lfd=30
-        self.vehicle_length=1
         self.steering=0
         
     def getPath(self,msg):
@@ -137,15 +140,15 @@ class purePursuit :
     
     def getEgoStatus(self,msg):
 
-        self.current_vel=msg.velocity.x  #kph
-        self.vehicle_yaw=msg.heading/180*pi   # rad
-        self.current_postion.x=msg.position.x
-        self.current_postion.y=msg.position.y
-        self.current_postion.z=msg.position.z
+        self.current_vel=msg.velocity  #kph
+        self.vehicle_yaw=(msg.heading)/180*pi   # rad
+        self.current_postion.x=msg.position.x ## 차량의 현재x 좌표 ##
+        self.current_postion.y=msg.position.y ## 차량의 현재y 좌표 ##
+        self.current_postion.z=msg.position.z ## 차량의 현재z 좌표 ##
 
 
 
-    def steering_angle(self):
+    def steering_angle(self): ## purePursuit 알고리즘을 이용한 Steering 계산 ## 
         vehicle_position=self.current_postion
         rotated_point=Point()
         self.is_look_forward_point= False
@@ -165,7 +168,8 @@ class purePursuit :
                 
                 if dis>= self.lfd :
                     
-                    self.lfd=self.current_vel/1.8
+                    self.lfd=self.current_vel.x * 0.65
+                    # print("lfd : ", self.lfd)
                     if self.lfd < self.min_lfd : 
                         self.lfd=self.min_lfd
                     elif self.lfd > self.max_lfd :
@@ -179,12 +183,10 @@ class purePursuit :
 
         if self.is_look_forward_point :
             self.steering=atan2((2*self.vehicle_length*sin(theta)),self.lfd)*180/pi #deg
-            print( self.steering)
-            return self.steering 
+            return self.steering ## Steering 반환 ##
         else : 
             print("no found forward point")
             return 0
-        
 
 class cruiseControl:
     def __init__(self,object_vel_gain,object_dis_gain):
@@ -305,7 +307,7 @@ class mgko_obj :
         
 
 
-class vaildObject :
+class vaildObject : ## 장애물 유무 확인 (차량, 사람, 정지선 신호) ##
 
     def __init__(self,stop_line=[]):
         self.stop_line=stop_line
@@ -353,16 +355,16 @@ class vaildObject :
 
 class pidController : ## 속도 제어를 위한 PID 적용 ##
     def __init__(self):
-        self.p_gain=1.0
+        self.p_gain=0.1
         self.i_gain=0.0
-        self.d_gain=0.5
+        self.d_gain=0.05
         self.controlTime=0.033
         self.prev_error=0
         self.i_control=0
 
 
     def pid(self,target_vel,current_vel):
-        error= target_vel-current_vel
+        error= target_vel-current_vel.x
         
         p_control=self.p_gain*error
         self.i_control+=self.i_gain*error*self.controlTime
@@ -378,11 +380,11 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
     out_path=[]
     selected_lane=-1
     lattic_current_lane=current_lane
-    look_distance=int(vehicle_status[3]*3.6*0.2*2)
-    if look_distance < 3 :
-        look_distance=3     #min 5m
-    if look_distance > 5 :
-        look_distance=5   
+    look_distance=int(vehicle_status[3]*3.6*0.8*2)
+    if look_distance < 5 :
+        look_distance=5     #min 5m
+    if look_distance > 9 :
+        look_distance=9  
     if len(ref_path.poses)>look_distance :
         global_ref_start_point=(ref_path.poses[0].pose.position.x,ref_path.poses[0].pose.position.y)
         global_ref_start_next_point=(ref_path.poses[1].pose.position.x,ref_path.poses[1].pose.position.y)
@@ -400,7 +402,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
         local_end_point=det_t.dot(world_end_point)
         world_ego_vehicle_position=np.array([[vehicle_status[0]],[vehicle_status[1]],[1]])
         local_ego_vehicle_position=det_t.dot(world_ego_vehicle_position)
-        lane_off_set=[3.9,2.6,1.3,0,-1.3,-2.6,-3.9]
+        lane_off_set=[3.6,2.4,1.2,0,-1.2,-2.4,-3.6]
         local_lattice_points=[]
         for i in range(len(lane_off_set)):
             local_lattice_points.append([local_end_point[0][0],local_end_point[1][0]+lane_off_set[i],1])
@@ -481,7 +483,7 @@ def latticePlanner(ref_path,global_vaild_object,vehicle_status,current_lane):
                     read_pose.pose.orientation.w=1
                     out_path[lane_num].poses.append(read_pose)
 
-        lane_weight=[6,4,2,0,2,4,6] #reference path 
+        lane_weight=[5,3,1,0,1,3,5] #reference path 
         collision_bool=[False,False,False,False,False,False,False]
 
         if len(global_vaild_object)>0:
