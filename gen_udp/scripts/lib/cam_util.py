@@ -4,8 +4,10 @@ import os
 import socket
 import struct
 import threading
-class UDP_CAM_Parser:
 
+
+class UDP_CAM_Parser:
+    
     def __init__(self, ip, port, params_cam=None):
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -16,9 +18,7 @@ class UDP_CAM_Parser:
 
         self.data_size=int(65000)
         
-        # the steps while checking how many blocks need to complete jpg
-        self.ready_step = int(10)
-        self.check_max_len()
+        self.max_len = 3 #640X480
         self.raw_img=None
         self.is_img=False
         thread = threading.Thread(target=self.loop)
@@ -32,19 +32,17 @@ class UDP_CAM_Parser:
 
     def check_max_len(self):
 
-        idx_list = b''
+        idx_list=[]
 
-        r_step = 0
+        for _ in range(self.ready_step):
 
-        while r_step<self.ready_step:
-            
             UnitBlock, sender = self.sock.recvfrom(self.data_size)
 
-            idx_list+=UnitBlock[3:7]
+            print("check the size .. ")
+            
+            idx_list.append(np.fromstring(UnitBlock[3:7], dtype = "int"))
 
-            r_step+=1
-
-
+        self.max_len = np.max(idx_list)+1
 
     def recv_udp_data(self):
 
@@ -52,22 +50,20 @@ class UDP_CAM_Parser:
         num_block = 0
 
         while True:
+            # self.sock.settimeout(1.0)
 
             UnitBlock, sender = self.sock.recvfrom(self.data_size)
-        
-            UnitIdx = struct.unpack('i',UnitBlock[3:7])[0]
-            UnitSize = struct.unpack('i',UnitBlock[7:11])[0]
+            
+            UnitIdx = np.frombuffer(UnitBlock[3:7], dtype = "int")[0]
+            UnitSize = np.frombuffer(UnitBlock[7:11], dtype = "int")[0]
             UnitTail = UnitBlock[-2:]
-                
-            if num_block==UnitIdx:
-                TotalBuffer+=UnitBlock[11:(11 + UnitSize)]
-                num_block+=1   
-            if UnitTail==b'EI' and num_block==UnitIdx+1:
+            UnitBody = UnitBlock[11:(11 + UnitSize)]
 
-                TotalIMG = cv2.imdecode(np.fromstring(TotalBuffer, np.uint8), 1)
-                self.img_byte = np.array(cv2.imencode('.jpg', TotalIMG)[1]).tostring()
+            TotalBuffer+=UnitBody
+
+            if UnitTail==b'EI':
              
-
+                TotalIMG = cv2.imdecode(np.fromstring(TotalBuffer[-64987*self.max_len-UnitSize:], np.uint8), 1)
 
                 TotalBuffer = b''
 
@@ -78,4 +74,3 @@ class UDP_CAM_Parser:
     def __del__(self):
         self.sock.close()
         print('del')
-
