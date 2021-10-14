@@ -113,7 +113,7 @@ class sync_planner():
                 ctrl_cmd_resp = ctrl_cmd_srv(ctrl_cmd)
 
                 # Send Tick
-                tick.frame = 0 # next_frame 
+                tick.frame = next_frame 
                 tick_resp = tick_wait_srv(tick)
                 self.status_msg = tick_resp.response.vehicle_status
                 self.tfBraodcaster()
