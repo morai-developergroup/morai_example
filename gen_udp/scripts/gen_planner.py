@@ -108,7 +108,7 @@ class planner :
 
         #set trafficlight (green)
         if not len(traffic_data) == 0 and traffic_greenlight_setting == "True": #set trafficlight (green)                        
-            self.set_traffic.send_data([False,traffic_data[0],16])
+            self.set_traffic.send_data([traffic_data[0],16])
             traffic_data[2]=16
 
         #fine_local_path, waypoint
