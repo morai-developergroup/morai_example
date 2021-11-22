@@ -111,7 +111,7 @@ class udp_sender :
         
         elif self.data_type == 'set_traffic':
             header='#TrafficLight$'.encode()
-            data_length=struct.pack('i',15)
+            data_length=struct.pack('i',14)
             aux_data=struct.pack('iii',0,0,0)
             self.upper=header+data_length+aux_data
             self.tail='\r\n'.encode()     
@@ -144,10 +144,9 @@ class udp_sender :
             send_data = self.upper + lower + self.tail
             # print(len(send_data),send_data)
 
-        elif self.data_type == 'set_traffic':            
-            packed_automode=struct.pack('?',data[0])
-            packed_traffic_index=data[1].encode()
-            packed_traffic_status=struct.pack('h',data[2])
+        elif self.data_type == 'set_traffic':
+            packed_traffic_index=data[0].encode()
+            packed_traffic_status=struct.pack('h',data[1])
             lower=packed_automode+packed_traffic_index+packed_traffic_status
             send_data=self.upper+lower+self.tail
 
